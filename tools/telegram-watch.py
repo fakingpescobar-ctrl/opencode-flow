@@ -14,7 +14,7 @@ with open(CONFIG, encoding="utf-8") as f:
 
 TOKEN = cfg["token"]
 CHANNEL = cfg["channel"]
-DISCUSSION = cfg.get("discussion_group")
+DISCUSSION = int(cfg["discussion_group"]) if cfg.get("discussion_group") else None
 
 BASE = f"https://api.telegram.org/bot{TOKEN}"
 
