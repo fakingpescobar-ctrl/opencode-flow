@@ -6,6 +6,37 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
+// ── Telegram comment watcher daemon ────────────────────────────
+function isTelegramDaemonRunning(): boolean {
+  const cmd =
+    `@(Get-CimInstance Win32_Process | ` +
+    `Where-Object { ($_.Name -match '^python') -and ($_.CommandLine -match 'telegram-watch-daemon') }).Count`
+  try {
+    return parseInt(execSync(cmd, { shell: "powershell", encoding: "utf8", timeout: 5000 }).trim(), 10) > 0
+  } catch {
+    return false
+  }
+}
+
+function killOldTelegramDaemon() {
+  const cmd =
+    `Get-CimInstance Win32_Process | ` +
+    `Where-Object { ($_.Name -match '^python') -and ($_.CommandLine -match 'telegram-watch-daemon') } | ` +
+    `ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`
+  try {
+    execSync(cmd, { shell: "powershell", encoding: "utf8", timeout: 8000 })
+  } catch { /* ignore */ }
+}
+
+function startTelegramDaemon() {
+  if (isTelegramDaemonRunning()) return
+  killOldTelegramDaemon()
+  const pythonw = "C:\\Users\\OLD\\anaconda3\\envs\\chatterbox-tts\\pythonw.exe"
+  const script = "C:\\Projects\\opencode-tts\\tools\\telegram-watch-daemon.py"
+  const proc = spawn(pythonw, [script], { stdio: "ignore", windowsHide: true })
+  proc.unref()
+}
+
 // ── Отладочный лог (временный, для диагностики озвучки) ─────────
 const DLOG_PATH = `${process.env.USERPROFILE}\\.opencode-tts\\plugin.log`
 const DLOG_ENABLED = false // диагностика озвучки завершена; включить при отладке
@@ -140,6 +171,50 @@ async function startTtsOverlayMonitor() {
   }
 }
 
+// ── Telegram overlay ───────────────────────────────────────────
+
+function killOldTelegramOverlay() {
+  const cmd =
+    `Get-CimInstance Win32_Process | ` +
+    `Where-Object { ($_.Name -match '^python') -and ($_.CommandLine -match 'telegram_overlay') } | ` +
+    `ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`
+  try {
+    execSync(cmd, { shell: "powershell", encoding: "utf8", timeout: 8000 })
+  } catch { /* ignore */ }
+}
+
+function startTelegramOverlay() {
+  if (isTelegramOverlayRunning()) return
+  killOldTelegramOverlay()
+  const pythonw = "C:\\Users\\OLD\\anaconda3\\envs\\chatterbox-tts\\pythonw.exe"
+  const script = "C:\\Projects\\opencode-tts\\overlays\\telegram_overlay.py"
+  const proc = spawn(pythonw, [script], { stdio: "ignore", windowsHide: true })
+  proc.unref()
+}
+
+function isTelegramOverlayRunning(): boolean {
+  const cmd =
+    `@(Get-CimInstance Win32_Process | ` +
+    `Where-Object { ($_.Name -match '^python') -and ($_.CommandLine -match 'telegram_overlay') }).Count`
+  try {
+    return parseInt(execSync(cmd, { shell: "powershell", encoding: "utf8", timeout: 5000 }).trim(), 10) > 0
+  } catch {
+    return false
+  }
+}
+
+async function startTelegramOverlayMonitor() {
+  while (true) {
+    await sleep(15_000)
+    if (!isTelegramOverlayRunning()) {
+      const pythonw = "C:\\Users\\OLD\\anaconda3\\envs\\chatterbox-tts\\pythonw.exe"
+      const script = "C:\\Projects\\opencode-tts\\overlays\\telegram_overlay.py"
+      const proc = spawn(pythonw, [script], { stdio: "ignore", windowsHide: true })
+      proc.unref()
+    }
+  }
+}
+
 // ── TTS (voice output) ─────────────────────────────────────────
 
 const TTS_PORT = 4321
@@ -222,6 +297,10 @@ function extractRussian(text: string): string {
 // ── Plugin export ──────────────────────────────────────────────
 
 export default (async (input) => {
+  // 0. Telegram comment watcher daemon (LLM автоответ) + оверлей
+  startTelegramDaemon()
+  startTelegramOverlay()
+
   // 1. Whisper (voice input) + плавающий индикатор статуса
   startVoiceListener()
   startStatusOverlay()
@@ -262,6 +341,8 @@ export default (async (input) => {
 
   // 3. Регистрируем cleanup при выходе из opencode
   const cleanup = () => {
+    killOldTelegramDaemon()
+    killOldTelegramOverlay()
     killOldVoiceListeners()
     killOldTtsProcesses()
     killOldStatusOverlay()
@@ -271,8 +352,9 @@ export default (async (input) => {
   process.on("SIGINT", cleanup)
   process.on("SIGTERM", cleanup)
 
-  // 4. Мониторинг оверлея Whisper (автоподъём если упал)
+  // 4. Мониторинг оверлеев (автоподъём если упал)
   void startOverlayMonitor()
+  void startTelegramOverlayMonitor()
 
   // 5. Auto-speak on session idle
   let _lastSpokeSessionId = ""

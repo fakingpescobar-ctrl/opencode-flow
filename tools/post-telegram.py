@@ -12,7 +12,7 @@ BASE = f"https://api.telegram.org/bot{TOKEN}"
 
 def send_text(text: str, silent: bool = False):
     r = requests.post(f"{BASE}/sendMessage", json={
-        "chat_id": CHAT, "text": text, "parse_mode": "Markdown",
+        "chat_id": CHAT, "text": text, "parse_mode": "HTML",
         "disable_notification": silent,
     }, timeout=10)
     data = r.json()

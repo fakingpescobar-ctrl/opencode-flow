@@ -4,7 +4,7 @@
 
 # opencode-flow
 
-Голосовой ввод (Whisper STT) + Озвучка ответов (ElevenLabs TTS) + Управление Яндекс Музыкой для [OpenCode](https://opencode.ai).
+Голосовой ввод (Whisper STT) + Озвучка ответов (ElevenLabs TTS) + Управление Яндекс Музыкой + Telegram-канал с AI-автоответом для [OpenCode](https://opencode.ai).
 
 ---
 
@@ -12,38 +12,33 @@
 
 ```
 opencode-flow/
-├── tts-server/          # TTS-сервер (ElevenLabs)
-│   ├── tts_server.py        # Flask-сервер на waitress, порт 4321
-│   ├── backend_elevenlabs.py # Обёртка ElevenLabs SDK (таймауты, retry, watchtower)
-│   ├── tts_config.py        # Загрузка конфига
-│   ├── demo_voices.py       # Демо голосов
-│   └── start-tts.ps1        # Меню выбора TTS (ElevenLabs / откл.)
-├── whisper/             # Голосовой ввод
-│   ├── whisper_listener.py  # VAD + faster-whisper + SendInput
-│   ├── run-whisper.ps1      # Авторестарт-обёртка
-│   └── start-voice.ps1      # Запуск whisper + оверлеев
-├── overlays/            # Плавающие индикаторы
-│   ├── status_overlay.py    # Статус Whisper (слушает/молчит)
-│   └── tts_overlay.py       # Статус TTS (загрузка/говорит/ошибка)
-├── ym-control/          # Управление Яндекс Музыкой через CDP
-│   ├── media-control.ps1    # Обёртка: next, prev, playpause, like, volume
-│   ├── ym_control.exe       # C# программа для базовых действий
-│   ├── start-ym-debug.ps1   # Запуск YM с remote-debugging-port
-│   ├── ym-like-v11.mjs      # Лайк трека через API Яндекса
-│   ├── ym-check-fav-api.mjs # Проверка лайкнутых через API
-│   ├── ym-search.mjs        # Поиск трека
-│   ├── ym-play-exact.mjs    # Воспроизведение конкретного трека
-│   ├── ym-play-from-album.mjs # Воспроизведение из альбома
-│   ├── ym-now-playing.mjs   # Что сейчас играет
-│   ├── ym-resume.mjs        # Пауза/плей
-│   └── ym-inspect.mjs       # Инспекция страницы YM
-├── plugin/              # Плагин OpenCode
-│   └── tts.ts               # Автоозвучка ответов, мониторинг оверлеев
-└── config/              # Конфиги (в .gitignore, свои на каждой машине)
-    ├── config.json          # Ключ ElevenLabs, voice_id, модель
-    ├── voice-config.json    # Настройки Whisper (модель, VAD, язык)
-    ├── voice-status.json    # Текущий статус Whisper (пишет listener)
-    └── tts-status.json      # Текущий статус TTS (пишет сервер)
+├── tts-server/              # TTS-сервер (ElevenLabs)
+│   ├── tts_server.py            # Flask на waitress, порт 4321
+│   ├── backend_elevenlabs.py    # Обёртка ElevenLabs SDK
+│   ├── tts_config.py            # Загрузка конфига
+│   └── start-tts.ps1            # Меню выбора TTS
+├── whisper/                 # Голосовой ввод
+│   ├── whisper_listener.py      # VAD + faster-whisper + SendInput
+│   ├── run-whisper.ps1          # Авторестарт-обёртка
+│   └── start-voice.ps1          # Запуск whisper + оверлеев
+├── overlays/                # Плавающие индикаторы
+│   ├── status_overlay.py        # Статус Whisper
+│   ├── tts_overlay.py           # Статус TTS
+│   └── telegram_overlay.py      # Статус Telegram бота
+├── ym-control/              # Управление Яндекс Музыкой через CDP
+│   ├── media-control.ps1        # Обёртка: next, prev, playpause, like, volume
+│   ├── ym_control.exe           # C# программа (базовые действия)
+│   ├── start-ym-debug.ps1       # Запуск YM с remote-debugging-port
+│   ├── ym-like-v11.mjs          # Лайк трека через API Яндекса
+│   ├── ym-check-fav-api.mjs     # Проверка лайкнутых
+│   └── ... (другие .mjs скрипты)
+├── plugin/                  # Плагин OpenCode
+│   └── tts.ts                   # Автозапуск всего, мониторинг, автоозвучка
+└── tools/                   # Telegram-инструменты
+    ├── post-telegram.py         # Постинг в канал (текст/фото)
+    ├── telegram-watch.py        # Просмотр и ручной ответ на комментарии
+    ├── telegram-watch-daemon.py # Фоновый daemon с LLM-автоответом
+    └── telegram-watch-daemon.py # Мониторинг комментариев
 ```
 
 ---
@@ -59,17 +54,11 @@ tts-server/tts_server.py
 Flask-сервер на `waitress`, порт **4321**. Единственный бэкенд — ElevenLabs.
 
 - Воспроизведение mp3 через MCI (`winmm.dll`) с фоновой очередью
-- Keepalive-воркер — пинг `/v1/models` каждые 20 с (чтобы TLS-туннель не засыпал)
-- Watchtower-воркер — проверка соединения каждые 30 с, пересоздание клиента при восстановлении сети
-- Статус пишется в `~/.opencode-tts/tts-status.json`: `loading` / `ready` / `speaking` / `error`
-- Установка: `start-tts.ps1` — меню выбора
+- Keepalive-воркер — пинг `/v1/models` каждые 20 с
+- Watchtower-воркер — проверка соединения каждые 30 с, пересоздание клиента
+- Статус в `~/.opencode-tts/tts-status.json`: `loading` / `ready` / `speaking` / `error`
 
-**Зависимости (Conda env `elevenlabs`):**
-```
-flask, waitress, elevenlabs, requests
-```
-
-**Примечание:** ElevenLabs API заблокирован в РФ — нужен full-tunnel VPN.
+**Зависимости (Conda env `elevenlabs`):** `flask, waitress, elevenlabs, requests`
 
 ---
 
@@ -79,34 +68,51 @@ flask, waitress, elevenlabs, requests
 whisper/whisper_listener.py
 ```
 
-VAD (энергетический детектор) + `faster-whisper` (модель `medium`) на CUDA.
+VAD (энергетический) + `faster-whisper medium` на CUDA. Ввод текста через `SendInput`.
 
-- Ввод текста в активное окно через `SendInput` (юникод)
 - Фильтр галлюцинаций (стоп-фразы, короткий/повторяющийся текст)
-- Typewriter-режим с задержкой 40 мс между символами
-- Горячие клавиши: **Ctrl+Shift+V** (пауза/возобновить), **Ctrl+Shift+Q** (выход)
-- Автоматически замолкает, когда TTS говорит (читает `tts-status.json`)
+- Typewriter-режим с задержкой 40 мс
+- Горячие клавиши: **Ctrl+Shift+V** (пауза), **Ctrl+Shift+Q** (выход)
+- Автоматически замолкает, когда TTS говорит
 
-**Зависимости (Conda env `chatterbox-tts`):**
-```
-faster-whisper, sounddevice, numpy, pynput
-```
+**Зависимости (Conda env `chatterbox-tts`):** `faster-whisper, sounddevice, numpy, pynput`
 
 ---
 
 ### Оверлеи
 
+Три плавающих индикатора, прикреплённых к окну Windows Terminal:
+
+| Оверлей | Файл | Статусы |
+|---------|------|---------|
+| Whisper | `overlays/status_overlay.py` | слушает / печатает / пауза / offline |
+| TTS | `overlays/tts_overlay.py` | загрузка / готов / озвучивает / ошибка |
+| Telegram | `overlays/telegram_overlay.py` | загрузка / готов / отвечает / ошибка |
+
+Автоподъём при падении — вотчдоги в `tts.ts`.
+
+---
+
+### Telegram-канал и AI-автоответ
+
 ```bash
-overlays/status_overlay.py   # Индикатор Whisper
-overlays/tts_overlay.py      # Индикатор TTS
+tools/post-telegram.py "текст"                    # Пост в канал
+tools/post-telegram.py --photo "путь" "подпись"   # Пост с фото
+tools/telegram-watch.py                            # Посмотреть pending комментарии
 ```
 
-Плавающие окна поверх Windows Terminal, показывающие статус:
+Фоновый daemon (`telegram-watch-daemon.py`) каждые 10 с проверяет комментарии в обсуждении канала и отвечает на новые через локальный LLM (Ollama).
 
-- Whisper: 🔴 слушает / ⚪ молчит
-- TTS: ⏳ загрузка / 🟢 готов / 🟡 говорит / 🔴 ошибка
+**Как работает:**
+1. Daemon висит в фоне, запускается плагином `tts.ts` при старте OpenCode
+2. Новый комментарий → генерация ответа через Ollama (Impish_Bloodmoon_12B)
+3. Ответ отправляется в тред обсуждения
+4. Комментарий сохраняется в `pending-comments.json` для истории
 
-Привязаны к окну терминала, автоматически ездят за ним через WinEvent-хуки. Если упали — вотчдог в плагине поднимет заново.
+**Стиль ответов:** казахский подросток, русский с редкими казахскими словами, зеркалит настроение собеседника. Если девушка флиртует — подкатывает в ответ. Если грубят — грубит в ответ.
+
+**Канал:** [@GanggBanny](https://t.me/GanggBanny)
+**Бот:** @opencode_flow_bot
 
 ---
 
@@ -116,25 +122,9 @@ overlays/tts_overlay.py      # Индикатор TTS
 ym-control/media-control.ps1 -Action <next|prev|playpause|right|left|like|mute|restart|volume_N>
 ```
 
-Управление через Chrome DevTools Protocol (CDP) — Yandex Music desktop запускается с `--remote-debugging-port=9222`.
+Управление через CDP (Chrome DevTools Protocol). YM запускается с `--remote-debugging-port=9222`.
 
-**Доступные действия:**
-
-| Действие | Описание |
-|----------|----------|
-| `next` | Следующий трек |
-| `prev` | Предыдущий трек |
-| `playpause` | Пауза / воспроизведение |
-| `right` | Перемотка вперёд (×6) |
-| `left` | Перемотка назад (×6) |
-| `like` | Лайк трека (через API Яндекса) |
-| `mute` | Вкл/выкл звук |
-| `restart` | Перезапустить трек |
-| `volume_N` | Громкость N% (0–100) |
-
-**Лайк трека** — через прямой вызов API Яндекса (YM internal API), так как `ym_control.exe` не работает с новым UI.
-
-Автозапуск YM: `ym-control/start-ym-debug.ps1`, прописан в `HKCU\...\Run`.
+**Лайк трека** — через прямой API Яндекса (`POST /users/{uid}/likes/tracks/add-multiple`), так как UI-селекторы нестабильны.
 
 ---
 
@@ -146,15 +136,12 @@ plugin/tts.ts
 
 Устанавливается в `~/.config/opencode/plugin/tts.ts`.
 
-Что делает:
-1. Запускает `whisper_listener.py` (голосовой ввод)
-2. Запускает `status_overlay.py` (индикатор Whisper)
-3. Запускает `tts-server/tts_server.py` (TTS, если выбран не `none`)
-4. Запускает `tts_overlay.py` (индикатор TTS)
-5. Автоозвучка ответов ассистента (русский текст) при `session.idle`
-6. Очистка процессов при выходе
-
-Для автоозвучки: в `~/.opencode-tts/config.json` установить `model_key` в `"elevenlabs"` и указать API-ключ.
+При старте OpenCode:
+1. Запускает Telegram daemon + оверлей
+2. Запускает Whisper listener + оверлей
+3. Запускает TTS-сервер + оверлей (если выбран не `none`)
+4. Автоозвучка русских ответов ассистента
+5. Очистка процессов при выходе
 
 ---
 
@@ -168,33 +155,41 @@ conda create -n elevenlabs python=3.11
 conda activate elevenlabs
 pip install flask waitress elevenlabs requests
 
-# Whisper + Оверлеи
+# Whisper + Оверлеи + Telegram
 conda create -n chatterbox-tts python=3.11
 conda activate chatterbox-tts
-pip install faster-whisper sounddevice numpy pynput
+pip install faster-whisper sounddevice numpy pynput requests
 ```
 
-### 2. Плагин OpenCode
+### 2. Ollama + LLM для автоответа
+
+```powershell
+ollama pull hf.co/mradermacher/Impish_Bloodmoon_12B-i1-GGUF:Q4_K_M
+```
+
+### 3. Плагин OpenCode
 
 ```powershell
 copy plugin\tts.ts "$env:USERPROFILE\.config\opencode\plugin\tts.ts"
 ```
 
-### 3. Конфиги
+### 4. Конфиги Telegram
 
 ```powershell
-mkdir "$env:USERPROFILE\.opencode-tts"
-# config.json — ключ ElevenLabs, voice_id, модель
-# voice-config.json — настройки Whisper
+# ~/.opencode-tts/telegram-config.json
+{
+  "token": "BOT_TOKEN",
+  "channel": "@GanggBanny",
+  "channel_id": -1003300506997,
+  "discussion_group": -1003939462897
+}
 ```
 
-Либо запустить `tts-server/start-tts.ps1` — он создаст конфиг и предложит меню.
-
-### 4. Яндекс Музыка
+### 5. Яндекс Музыка
 
 ```powershell
-ym-control/start-ym-debug.ps1    # Запустить YM с debug-портом
-ym-control/media-control.ps1 next  # Проверить управление
+ym-control/start-ym-debug.ps1
+ym-control/media-control.ps1 next
 ```
 
 ---
@@ -202,25 +197,23 @@ ym-control/media-control.ps1 next  # Проверить управление
 ## Быстрый старт
 
 ```powershell
-# 1. Убедиться, что YM запущен с debug-портом
+# 1. Запустить YM с debug-портом
 ym-control/start-ym-debug.ps1
 
-# 2. Запустить TTS-сервер
-tts-server/start-tts.ps1
-
-# 3. Запустить OpenCode — плагин сам поднимет whisper и оверлеи
+# 2. Запустить OpenCode — плагин поднимет всё остальное
 opencode
 ```
+
+Плагин автоматически запустит TTS (если настроен), Whisper, Telegram daemon и все оверлеи.
 
 ---
 
 ## Важные детали
 
-- **Яндекс Музыка** — Electron-приложение с кастомным протоколом `music-application://`. CDP работает только через Node.js (`WebSocket`), PowerShell не поддерживает.
-- **CDP настройка:** YM desktop запускается с флагом `--remote-debugging-port=9222`. После запуска доступен вкладка `music-application://desktop/` по `http://localhost:9222/json`.
-- **Лайк через API:** `POST https://api.music.yandex.net/users/{uid}/likes/tracks/add-multiple` с form-urlencoded телом и OAuth-токеном из `localStorage` YM.
-- **Network recovery:** При блокировке ElevenLaaS (РФ) watchtower-воркер проверяет соединение каждые 30 с. Достаточно включить VPN — TTS восстановится без перезапуска.
-- **Аудиоустройство:** Для наушников используется `Set-AudioDevice -Index 3` (устройство Vault, модуль `AudioDeviceCmdlets`).
+- **Яндекс Музыка** — Electron с кастомным протоколом `music-application://`. CDP только через Node.js WebSocket.
+- **Лайк через API:** `POST https://api.music.yandex.net/users/{uid}/likes/tracks/add-multiple` с form-urlencoded и OAuth-токеном из `localStorage`.
+- **Network recovery:** ElevenLabs при блокировке (РФ) — watchtower проверяет каждые 30 с, восстанавливается после включения VPN.
+- **Telegram daemon** пишет статус в `~/.opencode-tts/telegram-status.json` для оверлея.
 
 ---
 
