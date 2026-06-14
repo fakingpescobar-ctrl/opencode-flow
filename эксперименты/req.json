@@ -1,0 +1,1 @@
+{ "model": "nvidia/nemotron-3-ultra-550b-a55b:free", "messages": [ { "role": "user", "content": "say hi" } ], "max_tokens": 10 }
