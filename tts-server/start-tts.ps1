@@ -80,7 +80,7 @@ function Save-And-Launch {
 
     # Запускаем сервер
     $python = "$env:USERPROFILE\anaconda3\envs\elevenlabs\python.exe"
-    $script = "C:\Projects\opencode-tts\tts_server.py"
+    $script = "C:\Projects\opencode-tts\tts-server\tts_server.py"
 
     if (-not (Test-Path $python)) {
         Write-Host "`nОшибка: Python не найден: $python" -ForegroundColor Red

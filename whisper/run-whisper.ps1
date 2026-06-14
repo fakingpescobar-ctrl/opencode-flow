@@ -1,6 +1,6 @@
 # Auto-restart wrapper for whisper_listener.py
 $Python = "C:\Users\OLD\anaconda3\envs\chatterbox-tts\pythonw.exe"
-$Script = "C:\Projects\opencode-tts\whisper_listener.py"
+$Script = "C:\Projects\opencode-tts\whisper\whisper_listener.py"
 $LogFile = "$env:USERPROFILE\.opencode-tts\runner.log"
 
 while ($true) {

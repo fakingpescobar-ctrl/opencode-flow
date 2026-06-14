@@ -1,0 +1,40 @@
+# User config (keys, tokens)
+config/config.json
+config/voice-config.json
+
+# Runtime state files
+voice-status.json
+tts-status.json
+overlay.lock
+tts_overlay.lock
+
+# Logs
+*.log
+*.err
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Claude project files
+.claude/
+
+# Notes
+*изменения*
+*доработки*
+*.mde

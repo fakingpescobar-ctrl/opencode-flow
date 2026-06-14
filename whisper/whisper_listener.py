@@ -65,8 +65,19 @@ CFG = _load_voice_config()
 
 # --- Статус для плагина opencode и оверлея (живая индикация) ---
 VOICE_STATUS_PATH = Path.home() / ".opencode-tts" / "voice-status.json"
+TTS_STATUS_PATH = Path.home() / ".opencode-tts" / "tts-status.json"
 _status_state = "loading"
 _status_text = ""
+
+def _is_tts_speaking() -> bool:
+    try:
+        if TTS_STATUS_PATH.exists():
+            with open(TTS_STATUS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data.get("state") == "speaking"
+    except Exception:
+        pass
+    return False
 
 def _write_status(state: str, text: str = ""):
     """Атомарно пишет текущее состояние. Плагин/оверлей опрашивают файл."""
@@ -127,8 +138,9 @@ def _kill_older_copies():
     try:
         subprocess.run(
             ["powershell", "-NoProfile", "-Command",
-             f"Get-CimInstance Win32_Process -Filter \"Name = 'python.exe'\" | "
+             f"Get-CimInstance Win32_Process | "
              f"Where-Object {{ "
+             f"  $_.Name -match '^python' -and "
              f"  $_.CommandLine -match 'whisper_listener' -and "
              f"  $_.ProcessId -ne {my_pid} "
               f"  {'-and $_.CommandLine -match ''--debug''' if my_is_debug else ''} "
@@ -675,6 +687,14 @@ def _send_text_directed(text: str):
 def send_text(text: str):
     if not text.strip():
         return
+    # Не отправляем текст пока TTS говорит (чтобы не резать голосовой ответ)
+    if _is_tts_speaking():
+        log.info("[MUTE] TTS говорит — пропускаем")
+        return
+    # Whisper иногда галлюцинирует "$" (токен 258) из шума — отсекаем
+    text = text.lstrip("$")
+    if not text.strip():
+        return
     try:
         _send_text_directed(text)
         preview = text[:80] + ("..." if len(text) > 80 else "")
@@ -706,6 +726,7 @@ HALLUCINATION_PHRASES = {
     "пока",
     "продолжение в следующем видео",
     "оставайтесь на связи",
+    "пауза",
 }
 
 # Минимальная длина «осмысленного» текста.
@@ -749,6 +770,12 @@ def transcribe_and_send(audio: np.ndarray):
     if now - last_transcribe_time < 0.5:
         return
     last_transcribe_time = now
+
+    # На случай гонки: если TTS уже заговорил пока мы транскрибируем
+    if _is_tts_speaking():
+        log.info("[MUTE] TTS говорит — транскрибация отменена")
+        _write_status("listening")
+        return
 
     if now - last_send_time < SEND_COOLDOWN_SEC:
         remaining = SEND_COOLDOWN_SEC - (now - last_send_time)
@@ -838,7 +865,7 @@ def vad_loop():
                 speech_buffer.append(chunk)
                 is_speaking = True
                 silence_counter = 0
-                if is_active:
+                if is_active and not _is_tts_speaking():
                     print(".", end="", flush=True)
                     _write_status("speaking")  # ты говоришь -> «Слушаю»
         else:
@@ -852,7 +879,7 @@ def vad_loop():
                     is_speaking = False
                     speech_buffer = []
                     silence_counter = 0
-                    if is_active:
+                    if is_active and not _is_tts_speaking():
                         threading.Thread(target=transcribe_and_send, args=(audio,), daemon=True).start()
 
 def on_press(key):
