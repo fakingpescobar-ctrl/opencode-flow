@@ -26,19 +26,19 @@ opencode-flow/
 │   ├── tts_overlay.py           # Статус TTS
 │   └── telegram_overlay.py      # Статус Telegram бота
 ├── ym-control/              # Управление Яндекс Музыкой через CDP
-│   ├── media-control.ps1        # Обёртка: next, prev, playpause, like, volume
-│   ├── ym_control.exe           # C# программа (базовые действия)
-│   ├── start-ym-debug.ps1       # Запуск YM с remote-debugging-port
+│   ├── media-control.ps1        # Обёртка: все action'ы
+│   ├── ym-control.mjs           # CDP-скрипт (Node.js WebSocket)
 │   ├── ym-like-v11.mjs          # Лайк трека через API Яндекса
 │   ├── ym-check-fav-api.mjs     # Проверка лайкнутых
-│   └── ... (другие .mjs скрипты)
+│   └── start-ym-debug.ps1       # Запуск YM с remote-debugging-port
 ├── plugin/                  # Плагин OpenCode
 │   └── tts.ts                   # Автозапуск всего, мониторинг, автоозвучка
-└── tools/                   # Telegram-инструменты
+├── tools/                   # Telegram-инструменты
     ├── post-telegram.py         # Постинг в канал (текст/фото)
     ├── telegram-watch.py        # Просмотр и ручной ответ на комментарии
     ├── telegram-watch-daemon.py # Фоновый daemon с LLM-автоответом
-    └── telegram-watch-daemon.py # Мониторинг комментариев
+    ├── telegram-watch-daemon.py # Мониторинг комментариев
+    └── эксперименты/             # Архив старых экспериментов
 ```
 
 ---
@@ -119,10 +119,21 @@ tools/telegram-watch.py                            # Посмотреть pendin
 ### Управление Яндекс Музыкой
 
 ```bash
-ym-control/media-control.ps1 -Action <next|prev|playpause|right|left|like|mute|restart|volume_N>
+ym-control/media-control.ps1 -Action <next|prev|playpause|right|left|like|mute|volume_N|nowplaying|search|play>
 ```
 
 Управление через CDP (Chrome DevTools Protocol). YM запускается с `--remote-debugging-port=9222`.
+
+| Action | Что делает |
+|--------|-----------|
+| `next` / `prev` | Следующий / предыдущий трек |
+| `playpause` | Пауза / воспроизведение |
+| `right` / `left` | Перемотка вперёд / назад |
+| `mute` | Вкл / выкл звук |
+| `volume_N` | Громкость N% (0–100) |
+| `nowplaying` | Вывод текущего трека |
+| `search <query>` | Поиск треков/альбомов/исполнителей |
+| `play <query>` | Поиск и воспроизведение первого результата |
 
 **Лайк трека** — через прямой API Яндекса (`POST /users/{uid}/likes/tracks/add-multiple`), так как UI-селекторы нестабильны.
 
