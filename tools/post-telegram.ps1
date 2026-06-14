@@ -1,30 +1,18 @@
 param(
-    [Parameter(Mandatory, Position = 0)]
+    [Parameter(Position = 0)]
     [string]$Message,
-    [switch]$Silent
+    [switch]$Silent,
+    [string]$Photo
 )
 
-$configPath = "$env:USERPROFILE\.opencode-tts\telegram-config.json"
-if (-not (Test-Path $configPath)) {
-    Write-Error "Telegram config not found at $configPath"
-    exit 1
-}
+$python = "C:\Users\OLD\anaconda3\envs\chatterbox-tts\python.exe"
+$script = "C:\Projects\opencode-tts\tools\post-telegram.py"
 
-$cfg = Get-Content $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
-
-$body = @{
-    chat_id = $cfg.channel
-    text = $Message
-    parse_mode = "Markdown"
-    disable_notification = $Silent.IsPresent
-} | ConvertTo-Json
-
-try {
-    $url = "https://api.telegram.org/bot$($cfg.token)/sendMessage"
-    $r = Invoke-RestMethod -Uri $url -Method Post -Body $body -ContentType "application/json" -TimeoutSec 10
-    Write-Output "OK: message sent to $($cfg.channel)"
-}
-catch {
-    Write-Error "Failed: $_"
-    exit 1
+if ($Photo) {
+    if ($Message) { & $python $script "--photo" $Photo $Message }
+    else { & $python $script "--photo" $Photo }
+} else {
+    $args = @($Message)
+    if ($Silent) { $args += "--silent" }
+    & $python $script $args
 }
