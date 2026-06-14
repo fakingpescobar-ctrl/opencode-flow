@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="logo.svg" width="400" alt="opencode-flow logo">
+</div>
+
 # opencode-flow
 
 Голосовой ввод (Whisper STT) + Озвучка ответов (ElevenLabs TTS) + Управление Яндекс Музыкой для [OpenCode](https://opencode.ai).
