@@ -347,6 +347,10 @@ export default (async (input) => {
     killOldTtsProcesses()
     killOldStatusOverlay()
     killOldTtsOverlay()
+    // Выгружаем LLM-модель из VRAM
+    try {
+      execSync("ollama stop hf.co/mradermacher/Impish_Bloodmoon_12B-i1-GGUF:Q4_K_M", { shell: "powershell", encoding: "utf8", timeout: 5000 })
+    } catch { /* ignore */ }
   }
   process.on("exit", cleanup)
   process.on("SIGINT", cleanup)
