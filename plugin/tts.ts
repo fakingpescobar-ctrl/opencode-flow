@@ -2,6 +2,8 @@ import { spawn, execSync } from "child_process"
 import { appendFileSync } from "fs"
 import type { Plugin, PluginInput } from "@opencode-ai/plugin"
 
+const PARENT_PID = String(process.pid)
+
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms))
 }
@@ -99,7 +101,7 @@ function startStatusOverlay() {
   killOldStatusOverlay()
   const pythonw = "C:\\Users\\OLD\\anaconda3\\envs\\chatterbox-tts\\pythonw.exe"
   const script = "C:\\Projects\\opencode-tts\\overlays\\status_overlay.py"
-  const proc = spawn(pythonw, [script], { stdio: "ignore", windowsHide: true })
+  const proc = spawn(pythonw, [script, '--parent-pid', PARENT_PID], { stdio: "ignore", windowsHide: true })
   proc.unref()
 }
 
@@ -144,7 +146,7 @@ function startTtsOverlay() {
   killOldTtsOverlay()
   const pythonw = "C:\\Users\\OLD\\anaconda3\\envs\\chatterbox-tts\\pythonw.exe"
   const script = "C:\\Projects\\opencode-tts\\overlays\\tts_overlay.py"
-  const proc = spawn(pythonw, [script], { stdio: "ignore", windowsHide: true })
+  const proc = spawn(pythonw, [script, '--parent-pid', PARENT_PID], { stdio: "ignore", windowsHide: true })
   proc.unref()
 }
 
@@ -188,7 +190,7 @@ function startTelegramOverlay() {
   killOldTelegramOverlay()
   const pythonw = "C:\\Users\\OLD\\anaconda3\\envs\\chatterbox-tts\\pythonw.exe"
   const script = "C:\\Projects\\opencode-tts\\overlays\\telegram_overlay.py"
-  const proc = spawn(pythonw, [script], { stdio: "ignore", windowsHide: true })
+  const proc = spawn(pythonw, [script, '--parent-pid', PARENT_PID], { stdio: "ignore", windowsHide: true })
   proc.unref()
 }
 
