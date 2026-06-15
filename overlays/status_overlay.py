@@ -28,6 +28,13 @@ kernel32.CreateMutexW(None, True, "Local\\OpenCodeTTS_StatusOverlay")
 if ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS
     sys.exit(0)
 
+_PARENT_PID = None
+for i, a in enumerate(sys.argv):
+    if a == '--parent-pid' and i + 1 < len(sys.argv):
+        try: _PARENT_PID = int(sys.argv[i + 1])
+        except: pass
+        break
+
 _CRASH_LOG = Path.home() / ".opencode-tts" / "overlay_crash.log"
 def _log_crash(text: str):
     try:
@@ -165,6 +172,17 @@ def position_window():
 
 _last_state = None
 _visible = True
+
+_tick_count = 0
+def is_parent_alive():
+    if not _PARENT_PID:
+        return True
+    h = kernel32.OpenProcess(0x400, False, _PARENT_PID)
+    if not h:
+        return False
+    kernel32.CloseHandle(h)
+    return True
+
 def apply_now():
     global _last_state, _visible
     show = position_window()
@@ -184,6 +202,10 @@ def apply_now():
 
 
 def tick():
+    global _tick_count
+    _tick_count += 1
+    if _tick_count % 50 == 0 and not is_parent_alive():
+        sys.exit(0)
     apply_now()
     root.after(POLL_MS, tick)
 
