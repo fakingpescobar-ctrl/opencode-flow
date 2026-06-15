@@ -123,7 +123,7 @@ async function startOverlayMonitor() {
     if (!isOverlayRunning()) {
       const pythonw = "C:\\Users\\OLD\\anaconda3\\envs\\chatterbox-tts\\pythonw.exe"
       const script = "C:\\Projects\\opencode-tts\\overlays\\status_overlay.py"
-      const proc = spawn(pythonw, [script], { stdio: "ignore", windowsHide: true })
+      const proc = spawn(pythonw, [script, '--parent-pid', PARENT_PID], { stdio: "ignore", windowsHide: true })
       proc.unref()
     }
   }
@@ -167,7 +167,7 @@ async function startTtsOverlayMonitor() {
     if (!isTtsOverlayRunning()) {
       const pythonw = "C:\\Users\\OLD\\anaconda3\\envs\\chatterbox-tts\\pythonw.exe"
       const script = "C:\\Projects\\opencode-tts\\overlays\\tts_overlay.py"
-      const proc = spawn(pythonw, [script], { stdio: "ignore", windowsHide: true })
+      const proc = spawn(pythonw, [script, '--parent-pid', PARENT_PID], { stdio: "ignore", windowsHide: true })
       proc.unref()
     }
   }
@@ -211,7 +211,7 @@ async function startTelegramOverlayMonitor() {
     if (!isTelegramOverlayRunning()) {
       const pythonw = "C:\\Users\\OLD\\anaconda3\\envs\\chatterbox-tts\\pythonw.exe"
       const script = "C:\\Projects\\opencode-tts\\overlays\\telegram_overlay.py"
-      const proc = spawn(pythonw, [script], { stdio: "ignore", windowsHide: true })
+      const proc = spawn(pythonw, [script, '--parent-pid', PARENT_PID], { stdio: "ignore", windowsHide: true })
       proc.unref()
     }
   }
