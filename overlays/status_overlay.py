@@ -68,10 +68,17 @@ TASKBAR = 56
 
 user32 = ctypes.windll.user32
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+SYNCHRONIZE = 0x00100000
+WAIT_OBJECT_0 = 0x00000000
+WAIT_TIMEOUT = 0x00000102
 
 user32.GetForegroundWindow.restype = wt.HWND
 user32.GetParent.restype = wt.HWND
+user32.IsWindow.restype = wt.BOOL
+user32.IsWindow.argtypes = [wt.HWND]
 kernel32.OpenProcess.restype = wt.HANDLE
+kernel32.WaitForSingleObject.restype = wt.DWORD
+kernel32.WaitForSingleObject.argtypes = [wt.HANDLE, wt.DWORD]
 
 def _move_overlay(x: int, y: int):
     """Двигает оверлей. update_idletasks ОБЯЗАТЕЛЕН — без него tkinter откладывает
@@ -177,11 +184,13 @@ _tick_count = 0
 def is_parent_alive():
     if not _PARENT_PID:
         return True
-    h = kernel32.OpenProcess(0x400, False, _PARENT_PID)
+    h = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, _PARENT_PID)
     if not h:
         return False
-    kernel32.CloseHandle(h)
-    return True
+    try:
+        return kernel32.WaitForSingleObject(h, 0) == WAIT_TIMEOUT
+    finally:
+        kernel32.CloseHandle(h)
 
 def apply_now():
     global _last_state, _visible
@@ -204,8 +213,11 @@ def apply_now():
 def tick():
     global _tick_count
     _tick_count += 1
-    if _tick_count % 50 == 0 and not is_parent_alive():
-        sys.exit(0)
+    if _tick_count % 10 == 0:
+        if _cur_term and not user32.IsWindow(_cur_term):
+            sys.exit(0)
+        if not is_parent_alive():
+            sys.exit(0)
     apply_now()
     root.after(POLL_MS, tick)
 
